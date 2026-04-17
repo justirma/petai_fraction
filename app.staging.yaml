@@ -1,0 +1,130 @@
+# DigitalOcean App Platform — Staging AppSpec
+#
+# Staging tracks the `develop` branch and SHARES prod's managed clusters to
+# minimize cost. Isolation uses dedicated PG users + logical databases:
+#
+#   - Postgres: separate logical database `<PROJECT_NAME>_staging` on the same
+#     cluster, accessed by a dedicated `<PROJECT_NAME>_staging` PG user. The
+#     `db_name` and `db_user` fields in the databases: block cause DO to
+#     compose ${db.DATABASE_URL} with the right user + database automatically.
+#     GRANT/REVOKE SQL (one-time setup) ensures each user can only access its
+#     own database. See docs/deployment.md → "PG user isolation".
+#   - Valkey (layer 1 — connection): logical DB /1 via URL path override
+#     (prod uses /0, the default). ioredis parses the path and issues SELECT 1
+#     on connect, so FLUSHDB, KEYS, MONITOR all respect the DB boundary.
+#   - Valkey (layer 2 — key naming): BullMQ prefix `bull:staging` via
+#     BULLMQ_PREFIX env. Every BullMQ key is namespaced, so even if someone
+#     mis-configures REDIS_URL without `/1`, staging jobs don't land in prod's
+#     `bull:*` keyspace. Catches typos, misapplied secrets, and would-be
+#     disasters if we ever moved to Valkey Cluster (where SELECT is unavailable).
+#   - Better Auth: fresh secret, NEVER reuse prod's.
+#
+# The `databases:` block references the SAME cluster_name as prod but with
+# different db_name + db_user. App Platform adds this app to each cluster's
+# trusted sources automatically. Both apps use the simple ${db.DATABASE_URL}
+# binding — no manual URL composition needed.
+#
+# Deploys are gated by GitHub Actions: deploy_on_push is false, so raw pushes
+# to `develop` don't bypass CI. The deploy-staging job in ci.yml runs after
+# quality + test gates pass and calls digitalocean/app_action/deploy@v2.
+#
+# Bootstrap one-time steps are in docs/deployment.md → "Staging environment →
+# First-time staging bootstrap (runbook)".
+
+name: <PROJECT_NAME>-staging
+region: nyc
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+# App-level envs. DATABASE_URL uses the simple ${db.DATABASE_URL} binding —
+# DO composes it from the db_name + db_user specified in the databases: block.
+# No manual URL composition needed.
+envs:
+  - key: DATABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: ${db.DATABASE_URL}
+  - key: REDIS_URL
+    scope: RUN_AND_BUILD_TIME
+    value: rediss://${valkey.USERNAME}:${valkey.PASSWORD}@${valkey.HOSTNAME}:${valkey.PORT}/1
+  - key: BULLMQ_PREFIX
+    scope: RUN_TIME
+    value: "bull:staging"
+  - key: BETTER_AUTH_SECRET
+    scope: RUN_TIME
+    type: SECRET
+  - key: BETTER_AUTH_URL
+    scope: RUN_TIME
+  - key: NEXT_PUBLIC_APP_URL
+    scope: RUN_AND_BUILD_TIME
+  - key: NODE_ENV
+    scope: RUN_TIME
+    value: "production"
+  - key: SKIP_ENV_VALIDATION
+    scope: BUILD_TIME
+    value: "1"
+
+services:
+  - name: web
+    github:
+      repo: fractionwork/<PROJECT_NAME>  # UPDATE per project
+      branch: develop
+      deploy_on_push: false  # deploys driven by GitHub Actions after CI passes
+    dockerfile_path: docker/Dockerfile
+    http_port: 8080
+    instance_size_slug: basic-xs
+    instance_count: 1
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 10
+      period_seconds: 30
+    routes:
+      - path: /
+
+workers:
+  - name: job-worker
+    github:
+      repo: fractionwork/<PROJECT_NAME>  # UPDATE per project
+      branch: develop
+      deploy_on_push: false
+    dockerfile_path: docker/Dockerfile.worker
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    envs:
+      - key: RESEND_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_WEBHOOK_SECRET
+        scope: RUN_TIME
+        type: SECRET
+
+jobs:
+  - name: db-migrate
+    github:
+      repo: fractionwork/<PROJECT_NAME>  # UPDATE per project
+      branch: develop
+    dockerfile_path: docker/Dockerfile.worker
+    kind: PRE_DEPLOY
+    run_command: npx drizzle-kit migrate
+    instance_size_slug: basic-xxs
+
+# Reference the SAME clusters as prod (cluster_name has no -staging suffix).
+# db_name + db_user differ from prod — DO composes ${db.DATABASE_URL} with
+# the staging user + database. GRANT/REVOKE SQL (one-time) ensures this user
+# cannot access prod's defaultdb and vice versa.
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    production: true
+    cluster_name: <PROJECT_NAME>-db
+    db_name: <PROJECT_NAME>_staging
+    db_user: <PROJECT_NAME>_staging
+  - name: valkey
+    engine: VALKEY
+    production: true
+    cluster_name: <PROJECT_NAME>-valkey

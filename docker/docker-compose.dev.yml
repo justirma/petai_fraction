@@ -1,0 +1,37 @@
+# Compose project name — prefixes all containers, networks, and volumes.
+# The bootstrap skill replaces this with the project slug to avoid collisions
+# when running multiple DevHawk projects on the same machine.
+name: devhawk
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: devhawk
+      POSTGRES_USER: devhawk
+      POSTGRES_PASSWORD: devhawk_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devhawk"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg_data:
+  redis_data:

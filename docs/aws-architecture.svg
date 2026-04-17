@@ -1,0 +1,251 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <style>
+      .title { font-size: 22px; font-weight: 700; fill: #0f1419; }
+      .subtitle { font-size: 13px; fill: #536471; font-weight: 500; }
+      .label { font-size: 12px; font-weight: 600; fill: #0f1419; }
+      .sublabel { font-size: 10px; fill: #536471; font-weight: 400; }
+      .cost { font-size: 9px; fill: #8b5cf6; font-weight: 600; }
+      .zone-label { font-size: 11px; font-weight: 700; fill: #536471; letter-spacing: 1px; text-transform: uppercase; }
+      .aws-orange { fill: #ff9900; }
+      .vpc-border { stroke: #16a34a; stroke-width: 2; stroke-dasharray: 8 4; fill: none; }
+      .subnet-public { fill: #dcfce7; stroke: #16a34a; stroke-width: 1; rx: 8; }
+      .subnet-private { fill: #dbeafe; stroke: #3b82f6; stroke-width: 1; rx: 8; }
+      .service-box { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.5; rx: 10; filter: url(#shadow); }
+      .ecs-box { fill: #fff7ed; stroke: #f97316; stroke-width: 1.5; rx: 10; filter: url(#shadow); }
+      .db-box { fill: #f0f9ff; stroke: #0ea5e9; stroke-width: 1.5; rx: 10; filter: url(#shadow); }
+      .external-box { fill: #faf5ff; stroke: #a78bfa; stroke-width: 1.5; rx: 10; filter: url(#shadow); }
+      .ci-box { fill: #f0fdf4; stroke: #22c55e; stroke-width: 1.5; rx: 10; filter: url(#shadow); }
+      .flow-arrow { stroke: #6b7280; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+      .flow-arrow-data { stroke: #3b82f6; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-blue); stroke-dasharray: 6 3; }
+      .icon-circle { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; }
+    </style>
+    <filter id="shadow" x="-2%" y="-2%" width="104%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.08" />
+    </filter>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#6b7280" />
+    </marker>
+    <marker id="arrowhead-blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3b82f6" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="900" fill="#fafbfc" rx="0" />
+
+  <!-- Title -->
+  <text x="40" y="40" class="title">DevHawk — AWS Target Architecture</text>
+  <text x="40" y="60" class="subtitle">ECS Fargate · RDS PostgreSQL 16 · ElastiCache Serverless · SST (TypeScript IaC)</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- External / Edge layer                   -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- Route 53 -->
+  <rect x="40" y="90" width="140" height="70" class="external-box" />
+  <text x="110" y="118" text-anchor="middle" class="label">Route 53</text>
+  <text x="110" y="133" text-anchor="middle" class="sublabel">DNS + health checks</text>
+  <text x="110" y="150" text-anchor="middle" class="cost">~$0.50/mo</text>
+
+  <!-- ACM -->
+  <rect x="200" y="90" width="140" height="70" class="external-box" />
+  <text x="270" y="118" text-anchor="middle" class="label">ACM</text>
+  <text x="270" y="133" text-anchor="middle" class="sublabel">TLS certificate</text>
+  <text x="270" y="150" text-anchor="middle" class="cost">Free</text>
+
+  <!-- GitHub Actions -->
+  <rect x="880" y="90" width="280" height="70" class="ci-box" />
+  <text x="1020" y="115" text-anchor="middle" class="label">GitHub Actions CI/CD</text>
+  <text x="1020" y="132" text-anchor="middle" class="sublabel">lint → test → build → ECR push → SST deploy</text>
+  <text x="1020" y="150" text-anchor="middle" class="cost">Free tier (2,000 min/mo)</text>
+
+  <!-- Arrow: Route53 → ALB -->
+  <line x1="110" y1="160" x2="110" y2="210" class="flow-arrow" />
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- VPC boundary                            -->
+  <!-- ═══════════════════════════════════════ -->
+  <rect x="20" y="185" width="840" height="690" class="vpc-border" />
+  <text x="40" y="205" class="zone-label">VPC — 10.0.0.0/16</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Public subnets                          -->
+  <!-- ═══════════════════════════════════════ -->
+  <rect x="40" y="215" width="800" height="120" class="subnet-public" />
+  <text x="60" y="235" class="zone-label">Public Subnets (2 AZs)</text>
+
+  <!-- ALB -->
+  <rect x="60" y="248" width="240" height="72" class="service-box" />
+  <text x="180" y="272" text-anchor="middle" class="label">Application Load Balancer</text>
+  <text x="180" y="288" text-anchor="middle" class="sublabel">HTTPS :443 → target group :8080</text>
+  <text x="180" y="304" text-anchor="middle" class="cost">~$16/mo + data</text>
+
+  <!-- NAT Gateway -->
+  <rect x="560" y="248" width="260" height="72" class="service-box" />
+  <text x="690" y="272" text-anchor="middle" class="label">NAT Gateway</text>
+  <text x="690" y="288" text-anchor="middle" class="sublabel">Outbound internet for private subnets</text>
+  <text x="690" y="304" text-anchor="middle" class="cost">~$32/mo + data (single AZ to save cost)</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Private subnets — Compute              -->
+  <!-- ═══════════════════════════════════════ -->
+  <rect x="40" y="355" width="800" height="230" class="subnet-private" />
+  <text x="60" y="377" class="zone-label">Private Subnets — Compute (2 AZs)</text>
+
+  <!-- ECS Cluster boundary -->
+  <rect x="60" y="390" width="540" height="180" rx="10" fill="none" stroke="#f97316" stroke-width="1.5" stroke-dasharray="6 3" />
+  <text x="80" y="410" style="font-size:10px; font-weight:700; fill:#f97316; letter-spacing:1px;">ECS FARGATE CLUSTER</text>
+
+  <!-- Web Service -->
+  <rect x="80" y="420" width="220" height="135" class="ecs-box" />
+  <text x="190" y="446" text-anchor="middle" class="label">web</text>
+  <text x="190" y="462" text-anchor="middle" class="sublabel">ECS Fargate Service</text>
+  <text x="190" y="480" text-anchor="middle" class="sublabel">Next.js standalone :8080</text>
+  <text x="190" y="498" text-anchor="middle" class="sublabel">0.5 vCPU / 1 GB</text>
+  <text x="190" y="516" text-anchor="middle" class="sublabel">Auto-scaling 1–4 tasks</text>
+  <text x="190" y="534" text-anchor="middle" class="sublabel">Health: /api/health</text>
+  <text x="190" y="548" text-anchor="middle" class="cost">~$15/mo (1 task)</text>
+
+  <!-- Worker Service -->
+  <rect x="320" y="420" width="260" height="135" class="ecs-box" />
+  <text x="450" y="446" text-anchor="middle" class="label">job-worker</text>
+  <text x="450" y="462" text-anchor="middle" class="sublabel">ECS Fargate Service (no ALB)</text>
+  <text x="450" y="480" text-anchor="middle" class="sublabel">BullMQ consumer — always-on</text>
+  <text x="450" y="498" text-anchor="middle" class="sublabel">0.25 vCPU / 0.5 GB</text>
+  <text x="450" y="516" text-anchor="middle" class="sublabel">No timeout, retries built-in</text>
+  <text x="450" y="534" text-anchor="middle" class="sublabel">Concurrency per queue</text>
+  <text x="450" y="548" text-anchor="middle" class="cost">~$8/mo</text>
+
+  <!-- db-migrate (Run Task) -->
+  <rect x="620" y="390" width="200" height="90" class="ecs-box" />
+  <text x="720" y="416" text-anchor="middle" class="label">db-migrate</text>
+  <text x="720" y="432" text-anchor="middle" class="sublabel">ECS Run Task (one-shot)</text>
+  <text x="720" y="448" text-anchor="middle" class="sublabel">drizzle-kit migrate</text>
+  <text x="720" y="464" text-anchor="middle" class="sublabel">Triggered by CI pre-deploy</text>
+  <text x="720" y="476" text-anchor="middle" class="cost">~$0.01/run</text>
+
+  <!-- Secrets Manager + SSM -->
+  <rect x="620" y="495" width="200" height="70" class="service-box" />
+  <text x="720" y="520" text-anchor="middle" class="label">Secrets Manager</text>
+  <text x="720" y="536" text-anchor="middle" class="sublabel">AUTH_SECRET, API keys</text>
+  <text x="720" y="552" text-anchor="middle" class="cost">~$2/mo</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Private subnets — Data                  -->
+  <!-- ═══════════════════════════════════════ -->
+  <rect x="40" y="605" width="800" height="150" class="subnet-private" />
+  <text x="60" y="627" class="zone-label">Private Subnets — Data (2 AZs)</text>
+
+  <!-- RDS PostgreSQL -->
+  <rect x="60" y="640" width="350" height="100" class="db-box" />
+  <text x="235" y="668" text-anchor="middle" class="label">RDS PostgreSQL 16</text>
+  <text x="235" y="686" text-anchor="middle" class="sublabel">db.t4g.micro · 20 GB gp3 · Single-AZ (dev) / Multi-AZ (prod)</text>
+  <text x="235" y="704" text-anchor="middle" class="sublabel">Automated backups · 7-day retention · Encryption at rest</text>
+  <text x="235" y="722" text-anchor="middle" class="cost">~$13/mo (single-AZ) · ~$26/mo (Multi-AZ)</text>
+
+  <!-- ElastiCache Serverless -->
+  <rect x="430" y="640" width="390" height="100" class="db-box" />
+  <text x="625" y="668" text-anchor="middle" class="label">ElastiCache Serverless (Redis 7)</text>
+  <text x="625" y="686" text-anchor="middle" class="sublabel">Auto-scaling · No node management · Multi-AZ by default</text>
+  <text x="625" y="704" text-anchor="middle" class="sublabel">BullMQ queues + caching + rate limiting</text>
+  <text x="625" y="722" text-anchor="middle" class="cost">~$10–15/mo (low traffic) · scales with demand</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Monitoring / Observability              -->
+  <!-- ═══════════════════════════════════════ -->
+  <rect x="40" y="775" width="800" height="80" rx="8" fill="#fef9c3" stroke="#eab308" stroke-width="1" />
+  <text x="60" y="797" class="zone-label" style="fill:#a16207;">Observability</text>
+
+  <rect x="60" y="808" width="180" height="36" class="service-box" />
+  <text x="150" y="830" text-anchor="middle" class="label">CloudWatch Logs</text>
+
+  <rect x="260" y="808" width="180" height="36" class="service-box" />
+  <text x="350" y="830" text-anchor="middle" class="label">Container Insights</text>
+
+  <rect x="460" y="808" width="180" height="36" class="service-box" />
+  <text x="550" y="830" text-anchor="middle" class="label">CloudWatch Alarms</text>
+
+  <rect x="660" y="808" width="160" height="36" class="service-box" />
+  <text x="740" y="830" text-anchor="middle" class="label">X-Ray (optional)</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- ECR (outside VPC)                       -->
+  <!-- ═══════════════════════════════════════ -->
+  <rect x="880" y="185" width="280" height="80" class="service-box" />
+  <text x="1020" y="215" text-anchor="middle" class="label">ECR (Elastic Container Registry)</text>
+  <text x="1020" y="233" text-anchor="middle" class="sublabel">web:sha / worker:sha / migrate:sha</text>
+  <text x="1020" y="250" text-anchor="middle" class="cost">~$1/mo</text>
+
+  <!-- SST -->
+  <rect x="880" y="285" width="280" height="80" class="external-box" />
+  <text x="1020" y="312" text-anchor="middle" class="label">SST (TypeScript IaC)</text>
+  <text x="1020" y="330" text-anchor="middle" class="sublabel">infra/aws/ — defines all resources</text>
+  <text x="1020" y="348" text-anchor="middle" class="cost">sst deploy from CI</text>
+
+  <!-- DO equivalent reference -->
+  <rect x="880" y="390" width="280" height="130" rx="10" fill="#fff" stroke="#d1d5db" stroke-width="1" stroke-dasharray="4 4" />
+  <text x="1020" y="415" text-anchor="middle" style="font-size:11px; font-weight:700; fill:#536471;">DO EQUIVALENT</text>
+  <text x="900" y="438" style="font-size:10px; fill:#536471;">web → App Platform Service</text>
+  <text x="900" y="455" style="font-size:10px; fill:#536471;">job-worker → App Platform Worker</text>
+  <text x="900" y="472" style="font-size:10px; fill:#536471;">db-migrate → App Platform Job</text>
+  <text x="900" y="489" style="font-size:10px; fill:#536471;">RDS → Managed PG 16 ($15/mo)</text>
+  <text x="900" y="506" style="font-size:10px; fill:#536471;">ElastiCache → Managed Redis 7 ($15/mo)</text>
+
+  <!-- Cost summary -->
+  <rect x="880" y="540" width="280" height="125" rx="10" fill="#faf5ff" stroke="#a78bfa" stroke-width="1.5" filter="url(#shadow)" />
+  <text x="1020" y="565" text-anchor="middle" style="font-size:13px; font-weight:700; fill:#6d28d9;">Estimated Monthly Cost</text>
+  <text x="900" y="588" style="font-size:11px; fill:#536471;">ALB</text>
+  <text x="1140" y="588" text-anchor="end" style="font-size:11px; fill:#0f1419; font-weight:600;">$16</text>
+  <text x="900" y="604" style="font-size:11px; fill:#536471;">ECS Fargate (web + worker)</text>
+  <text x="1140" y="604" text-anchor="end" style="font-size:11px; fill:#0f1419; font-weight:600;">$23</text>
+  <text x="900" y="620" style="font-size:11px; fill:#536471;">RDS PostgreSQL (single-AZ)</text>
+  <text x="1140" y="620" text-anchor="end" style="font-size:11px; fill:#0f1419; font-weight:600;">$13</text>
+  <text x="900" y="636" style="font-size:11px; fill:#536471;">ElastiCache Serverless</text>
+  <text x="1140" y="636" text-anchor="end" style="font-size:11px; fill:#0f1419; font-weight:600;">$12</text>
+  <text x="900" y="652" style="font-size:11px; fill:#536471;">NAT Gateway</text>
+  <text x="1140" y="652" text-anchor="end" style="font-size:11px; fill:#0f1419; font-weight:600;">$32</text>
+  <line x1="900" y1="658" x2="1140" y2="658" stroke="#a78bfa" stroke-width="1" />
+  <text x="900" y="674" style="font-size:13px; font-weight:700; fill:#6d28d9;">Total (dev)</text>
+  <text x="1140" y="674" text-anchor="end" style="font-size:13px; font-weight:700; fill:#6d28d9;">~$97/mo</text>
+
+  <!-- ═══════════════════════════════════════ -->
+  <!-- Flow arrows                             -->
+  <!-- ═══════════════════════════════════════ -->
+
+  <!-- ALB → web -->
+  <path d="M 180 320 L 180 345 L 190 345 L 190 420" class="flow-arrow" />
+
+  <!-- web → RDS -->
+  <path d="M 190 555 L 190 580 L 235 580 L 235 640" class="flow-arrow-data" />
+
+  <!-- web → Redis (queue.add) -->
+  <path d="M 270 555 L 270 590 L 625 590 L 625 640" class="flow-arrow-data" />
+
+  <!-- worker → Redis (consume) -->
+  <path d="M 500 555 L 500 590 L 625 590" class="flow-arrow-data" />
+
+  <!-- worker → RDS -->
+  <path d="M 380 555 L 380 590 L 235 590 L 235 640" class="flow-arrow-data" />
+
+  <!-- db-migrate → RDS -->
+  <path d="M 720 480 L 720 590 L 235 590" class="flow-arrow-data" />
+
+  <!-- GitHub Actions → ECR -->
+  <path d="M 1020 160 L 1020 185" class="flow-arrow" />
+
+  <!-- ECR → ECS -->
+  <path d="M 880 225 L 830 225 L 830 430 L 820 430" class="flow-arrow" style="stroke-dasharray: 6 3;" />
+
+  <!-- Legend -->
+  <rect x="880" y="690" width="280" height="80" rx="8" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1" />
+  <text x="900" y="710" style="font-size:10px; font-weight:700; fill:#536471;">LEGEND</text>
+  <line x1="900" y1="726" x2="940" y2="726" class="flow-arrow" />
+  <text x="948" y="730" style="font-size:10px; fill:#536471;">Request / deploy flow</text>
+  <line x1="900" y1="746" x2="940" y2="746" class="flow-arrow-data" />
+  <text x="948" y="750" style="font-size:10px; fill:#536471;">Data flow (PG / Redis)</text>
+  <rect x="900" y="756" width="16" height="10" rx="2" fill="#dcfce7" stroke="#16a34a" stroke-width="0.5" />
+  <text x="924" y="765" style="font-size:10px; fill:#536471;">Public subnet</text>
+  <rect x="1020" y="756" width="16" height="10" rx="2" fill="#dbeafe" stroke="#3b82f6" stroke-width="0.5" />
+  <text x="1044" y="765" style="font-size:10px; fill:#536471;">Private subnet</text>
+</svg>

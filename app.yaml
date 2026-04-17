@@ -1,0 +1,131 @@
+# DigitalOcean App Platform — Prod AppSpec
+#
+# Replace <PROJECT_NAME> with your product's slug (kebab-case). The bootstrap
+# skill does this automatically; if you hand-customize, grep for <PROJECT_NAME>
+# and replace in this file and app.staging.yaml.
+#
+# This spec uses App Platform's native database binding (`databases:` block
+# with `production: true` + `cluster_name`) to reference EXISTING standalone
+# Managed DB clusters. It does NOT create new clusters — it references them
+# and DO automatically:
+#   - Injects ${db.DATABASE_URL}, ${db.HOSTNAME}, ${db.USERNAME}, ${db.PASSWORD},
+#     ${db.PORT}, ${db.CA_CERT} (and ${valkey.*} equivalents)
+#   - Uses the private VPC hostname with the DO-signed CA cert at runtime
+#   - Adds this app to each cluster's trusted sources
+#
+# This is the ONLY pattern that reliably works. Do NOT hardcode DATABASE_URL as
+# a SECRET env var pointing at `private-<host>` — that bypasses the binding and
+# every connection hangs for 31s on TLS handshake (the CA isn't injected and
+# the private hostname doesn't resolve). See docs/deployment.md for the full
+# story.
+#
+# App-level `envs:` block is inherited by every component (web, worker, jobs)
+# so shared values only have to be defined once. Per-component envs are for
+# secrets genuinely scoped to that component.
+#
+# Create the clusters + app:
+#   doctl databases create <PROJECT_NAME>-db     --engine pg     --version 16 --size db-s-1vcpu-1gb --region nyc3 --num-nodes 1
+#   doctl databases create <PROJECT_NAME>-valkey --engine valkey              --size db-s-1vcpu-1gb --region nyc3 --num-nodes 1
+#   doctl apps create --spec app.yaml
+# Update:
+#   doctl apps update <app-id> --spec app.yaml
+
+name: <PROJECT_NAME>
+region: nyc
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+# App-level envs inherited by every component.
+envs:
+  - key: DATABASE_URL
+    scope: RUN_AND_BUILD_TIME
+    value: ${db.DATABASE_URL}
+  - key: REDIS_URL
+    scope: RUN_AND_BUILD_TIME
+    value: ${valkey.DATABASE_URL}
+  - key: BETTER_AUTH_SECRET
+    scope: RUN_TIME
+    type: SECRET
+  - key: BETTER_AUTH_URL
+    scope: RUN_TIME
+  - key: NEXT_PUBLIC_APP_URL
+    scope: RUN_AND_BUILD_TIME
+  - key: NODE_ENV
+    scope: RUN_TIME
+    value: "production"
+  - key: SKIP_ENV_VALIDATION
+    scope: BUILD_TIME
+    value: "1"
+
+services:
+  - name: web
+    github:
+      repo: fractionwork/<PROJECT_NAME>  # UPDATE per project
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: docker/Dockerfile
+    http_port: 8080
+    instance_size_slug: basic-xs  # 1 vCPU / 1 GiB shared — ~$10/mo
+    instance_count: 1
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 10
+      period_seconds: 30
+    routes:
+      - path: /
+
+workers:
+  - name: job-worker
+    github:
+      repo: fractionwork/<PROJECT_NAME>  # UPDATE per project
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: docker/Dockerfile.worker
+    instance_size_slug: basic-xxs  # Shared / 512 MiB — ~$5/mo
+    instance_count: 1
+    envs:
+      # Component-scoped secrets only — shared values come from app-level envs.
+      - key: RESEND_API_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: STRIPE_WEBHOOK_SECRET
+        scope: RUN_TIME
+        type: SECRET
+
+jobs:
+  - name: db-migrate
+    github:
+      repo: fractionwork/<PROJECT_NAME>  # UPDATE per project
+      branch: main
+    # MUST specify the worker Dockerfile. Without this, DO falls back to the
+    # Heroku Node buildpack which runs `pnpm build` and fails on Next.js page
+    # collection. The worker image has drizzle-kit + all deps already.
+    dockerfile_path: docker/Dockerfile.worker
+    kind: PRE_DEPLOY
+    run_command: npx drizzle-kit migrate
+    instance_size_slug: basic-xxs
+
+# Reference existing standalone Managed DB clusters.
+# production: true + cluster_name → binds to pre-existing cluster (no create).
+# db_name + db_user → DO composes ${db.DATABASE_URL} with the specified user
+# and database, so both prod and staging apps can use the simple binding
+# without manual URL composition. Each user is GRANTed access only to its own
+# database via one-time GRANT/REVOKE SQL (see docs/deployment.md).
+# DO managed Redis is now Valkey-based; engine MUST be VALKEY (uppercase).
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    production: true
+    cluster_name: <PROJECT_NAME>-db
+    db_name: defaultdb
+    db_user: <PROJECT_NAME>_prod
+  - name: valkey
+    engine: VALKEY
+    production: true
+    cluster_name: <PROJECT_NAME>-valkey

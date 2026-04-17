@@ -1,0 +1,48 @@
+{
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(npx drizzle-kit *)",
+      "Bash(npx tsx *)",
+      "Bash(docker compose *)",
+      "Bash(git *)",
+      "Bash(cat *)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(grep *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(sudo *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read file_path; if echo \"$file_path\" | grep -qE '\\.(ts|tsx)$'; then pnpm typecheck 2>&1 | tail -20; fi; }"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read file_path; if echo \"$file_path\" | grep -q 'lib/db/schema/'; then pnpm db:generate 2>&1 | tail -10; fi; }"
+          }
+        ]
+      }
+    ]
+  }
+}
